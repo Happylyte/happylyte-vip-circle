@@ -2,7 +2,7 @@ const SETTINGS = {
   SHOPIFY_STORE: process.env.SHOPIFY_STORE,
   SHOPIFY_ADMIN_TOKEN: process.env.SHOPIFY_ADMIN_TOKEN,
 
-  CAMPAIGN_START: "2026-04-29T23:00:00:00Z",
+  CAMPAIGN_START: "2026-04-29T23:00:00Z",
   CAMPAIGN_END: "2026-05-06T22:59:59Z",
 
   MAX_LEADERS: 9,
@@ -56,7 +56,7 @@ Number(order.current_total_price || 0) > 0
 async function fetchOrders() {
   let all = [];
   let url =
-    `https://${SETTINGS.SHOPIFY_STORE}/admin/api/2024-01/orders.json?status=any&limit=250`;
+    `https://${SETTINGS.SHOPIFY_STORE}/admin/api/2024-10/orders.json?status=any&limit=250`;
 
   while (url) {
     const res = await fetch(url, {
