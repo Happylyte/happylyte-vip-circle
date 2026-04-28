@@ -2,8 +2,8 @@ const SETTINGS = {
   SHOPIFY_STORE: process.env.SHOPIFY_STORE,
   SHOPIFY_ADMIN_TOKEN: process.env.SHOPIFY_ADMIN_TOKEN,
 
-  CAMPAIGN_START: "2026-04-29T00:00:00+01:00",
-  CAMPAIGN_END: "2026-05-06T23:59:59+01:00",
+  CAMPAIGN_START: "2026-04-29T23:00:00:00Z",
+  CAMPAIGN_END: "2026-05-06T22:59:59Z",
 
   MAX_LEADERS: 9,
   REFRESH_SECONDS: 300,
@@ -42,15 +42,14 @@ function getCustomerKey(order) {
 function isValid(order, start, end) {
   const created = new Date(order.created_at);
 
-  return (
-    created >= start &&
-    created <= end &&
-    (order.financial_status === "paid" ||
-      order.financial_status === "partially_paid") &&
-    !order.cancelled_at &&
-    !order.test &&
-    Number(order.current_total_price || 0) > 0
-  );
+return (
+created >= start &&
+created <= end &&
+["paid", "partially_paid", "authorized"].includes(order.financial_status) &&
+!order.cancelled_at &&
+!order.test &&
+Number(order.current_total_price || 0) > 0
+);
 }
 
 // Fetch all orders (handles pagination)
