@@ -93,6 +93,19 @@ export default async function handler(req, res) {
     const end = new Date(SETTINGS.CAMPAIGN_END);
 
     const orders = await fetchOrders();
+    return res.status(200).json({
+success: true,
+totalOrdersFetched: orders.length,
+sampleOrders: orders.slice(0, 10).map(order => ({
+id: order.id,
+created_at: order.created_at,
+financial_status: order.financial_status,
+current_total_price: order.current_total_price,
+total_price: order.total_price,
+cancelled_at: order.cancelled_at,
+test: order.test
+}))
+});
     const totals = new Map();
 
     for (const order of orders) {
