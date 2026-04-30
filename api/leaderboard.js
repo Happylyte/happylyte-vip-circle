@@ -97,6 +97,23 @@ export default async function handler(req, res) {
     const end = new Date(SETTINGS.CAMPAIGN_END);
 
     const orders = await fetchOrders();
+    const validOrders = orders.filter(order => isValid(order, start, end));
+
+return res.status(200).json({
+success: true,
+start: SETTINGS.CAMPAIGN_START,
+end: SETTINGS.CAMPAIGN_END,
+totalOrdersFetched: orders.length,
+validOrdersCount: validOrders.length,
+sampleOrders: orders.slice(0, 10).map(order => ({
+created_at: order.created_at,
+financial_status: order.financial_status,
+current_total_price: order.current_total_price,
+cancelled_at: order.cancelled_at,
+test: order.test,
+valid: isValid(order, start, end)
+}))
+});
     const totals = new Map();
 
     for (const order of orders) {
