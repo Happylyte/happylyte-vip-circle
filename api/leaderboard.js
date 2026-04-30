@@ -54,31 +54,36 @@ Number(order.current_total_price || 0) > 0
 
 // Fetch all orders (handles pagination)
 async function fetchOrders() {
-  let all = [];
-  let url =
+let all = [];
+
+let url =
 `https://${SETTINGS.SHOPIFY_STORE}/admin/api/2024-10/orders.json` +
 `?status=any` +
 `&limit=250` +
- `&order=created_at desc` +   
-`&created_at_min=${encodeURIComponent(SETTINGS.CAMPAIGN_START)}` +
-`&created_at_max=${encodeURIComponent(SETTINGS.CAMPAIGN_END)}`;
-  while (url) {
-    const res = await fetch(url, {
-      headers: {
-        "X-Shopify-Access-Token": SETTINGS.SHOPIFY_ADMIN_TOKEN,
-        "Content-Type": "application/json"
-      }
-    });
+`&order=created_at desc`;
 
-    const data = await res.json();
-    all = all.concat(data.orders || []);
+while (url) {
+const res = await fetch(url, {
+headers: {
+"X-Shopify-Access-Token": SETTINGS.SHOPIFY_ADMIN_TOKEN,
+"Content-Type": "application/json"
+}
+});
 
-    const link = res.headers.get("link");
-    const next = link && link.match(/<([^>]+)>;\s*rel="next"/);
-    url = next ? next[1] : null;
-  }
+if (!res.ok) {
+const text = await res.text();
+throw new Error(`Shopify error ${res.status}: ${text}`);
+}
 
-  return all;
+const data = await res.json();
+all = all.concat(data.orders || []);
+
+const link = res.headers.get("link");
+const next = link && link.match(/<([^>]+)>;\s*rel="next"/);
+url = next ? next[1] : null;
+}
+
+return all;
 }
 
 // Main handler
