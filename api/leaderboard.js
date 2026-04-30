@@ -59,9 +59,9 @@ async function fetchOrders() {
 `https://${SETTINGS.SHOPIFY_STORE}/admin/api/2024-10/orders.json` +
 `?status=any` +
 `&limit=250` +
+ `&order=created_at desc` +   
 `&created_at_min=${encodeURIComponent(SETTINGS.CAMPAIGN_START)}` +
 `&created_at_max=${encodeURIComponent(SETTINGS.CAMPAIGN_END)}`;
-
   while (url) {
     const res = await fetch(url, {
       headers: {
