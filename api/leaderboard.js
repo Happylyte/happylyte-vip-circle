@@ -56,7 +56,11 @@ Number(order.current_total_price || 0) > 0
 async function fetchOrders() {
   let all = [];
   let url =
-    `https://${SETTINGS.SHOPIFY_STORE}/admin/api/2024-10/orders.json?status=any&limit=250`;
+`https://${SETTINGS.SHOPIFY_STORE}/admin/api/2024-10/orders.json` +
+`?status=any` +
+`&limit=250` +
+`&created_at_min=${encodeURIComponent(SETTINGS.CAMPAIGN_START)}` +
+`&created_at_max=${encodeURIComponent(SETTINGS.CAMPAIGN_END)}`;
 
   while (url) {
     const res = await fetch(url, {
