@@ -75,7 +75,18 @@ const text = await res.text();
 throw new Error(`Shopify error ${res.status}: ${text}`);
 }
 
-const data = await res.json();
+const text = await res.text();
+
+if (!res.ok) {
+throw new Error(`Shopify error ${res.status}: ${text}`);
+}
+
+let data;
+try {
+data = JSON.parse(text);
+} catch (e) {
+throw new Error(`Invalid JSON from Shopify: ${text}`);
+}
 all = all.concat(data.orders || []);
 
 const link = res.headers.get("link");
