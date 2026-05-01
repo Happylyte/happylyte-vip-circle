@@ -1,143 +1,95 @@
-const SETTINGS = {
-SHOPIFY_STORE: process.env.SHOPIFY_STORE,
-SHOPIFY_ADMIN_TOKEN: process.env.SHOPIFY_ADMIN_TOKEN,
+export default async function handler(req, res) {
+// CORS headers first — before anything else
+res.setHeader("Access-Control-Allow-Origin", "*");
+res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+res.setHeader("Access-Control-Allow-Headers", "*");
+res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate");
 
-CAMPAIGN_START: "2026-04-28T23:00:00Z",
-CAMPAIGN_END: "2026-05-06T22:59:59Z",
-
-MAX_LEADERS: 9,
-REFRESH_SECONDS: 300,
-CURRENCY_SYMBOL: "₦"
-};
-
-function getInitials(order) {
-const first = order?.customer?.first_name || "";
-const last = order?.customer?.last_name || "";
-
-if (first || last) {
-return `${first.charAt(0).toUpperCase() || ""}.${last.charAt(0).toUpperCase() || ""}`;
+// Handle preflight
+if (req.method === "OPTIONS") {
+return res.status(200).end();
 }
 
-const email = order?.email || order?.customer?.email || "";
-if (email.includes("@")) {
-const name = email.split("@")[0];
-return `${name.charAt(0).toUpperCase()}.`;
+const SHOPIFY_STORE = process.env.SHOPIFY_STORE;
+const SHOPIFY_ADMIN_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN;
+const CAMPAIGN_START = "2026-04-28T23:00:00Z";
+const CAMPAIGN_END = "2026-05-06T22:59:59Z";
+
+try {
+if (!SHOPIFY_STORE || !SHOPIFY_ADMIN_TOKEN) {
+return res.status(500).json({ success: false, error: "Missing credentials" });
 }
-
-return "H.";
-}
-
-function getCustomerKey(order) {
-if (order?.customer?.id) return `c_${order.customer.id}`;
-
-const email = (order?.email || "").toLowerCase();
-if (email) return `e_${email}`;
-
-return `g_${order.id}`;
-}
-
-function isValid(order) {
-return (
-!order.cancelled_at &&
-!order.test &&
-["paid", "partially_paid", "authorized"].includes(order.financial_status) &&
-Number(order.current_total_price || 0) > 0
-);
-}
-
-async function fetchOrders() {
-let all = [];
 
 const params = new URLSearchParams({
 status: "any",
 limit: "250",
 order: "created_at desc",
-created_at_min: SETTINGS.CAMPAIGN_START,
-created_at_max: SETTINGS.CAMPAIGN_END,
+created_at_min: CAMPAIGN_START,
+created_at_max: CAMPAIGN_END,
 financial_status: "paid,partially_paid,authorized"
 });
 
-let url = `https://${SETTINGS.SHOPIFY_STORE}/admin/api/2024-10/orders.json?${params}`;
+let url = `https://${SHOPIFY_STORE}/admin/api/2024-10/orders.json?${params}`;
+let all = [];
 
 while (url) {
-const res = await fetch(url, {
+const r = await fetch(url, {
 headers: {
-"X-Shopify-Access-Token": SETTINGS.SHOPIFY_ADMIN_TOKEN,
+"X-Shopify-Access-Token": SHOPIFY_ADMIN_TOKEN,
 "Content-Type": "application/json"
 }
 });
 
-if (!res.ok) {
-const text = await res.text();
-throw new Error(`Shopify error ${res.status}: ${text}`);
+if (!r.ok) {
+const t = await r.text();
+throw new Error(`Shopify ${r.status}: ${t}`);
 }
 
-let data;
-try {
-data = await res.json();
-} catch (e) {
-throw new Error(`Invalid JSON from Shopify`);
-}
-
+const data = await r.json();
 all = all.concat(data.orders || []);
 
-const link = res.headers.get("link");
+const link = r.headers.get("link");
 const next = link && link.match(/<([^>]+)>;\s*rel="next"/);
 url = next ? next[1] : null;
 }
 
-return all;
-}
-
-export default async function handler(req, res) {
-res.setHeader("Access-Control-Allow-Origin", "*");
-res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate");
-
-try {
-if (!SETTINGS.SHOPIFY_STORE || !SETTINGS.SHOPIFY_ADMIN_TOKEN) {
-return res.status(500).json({
-success: false,
-error: "Missing Shopify credentials"
-});
-}
-
-const orders = await fetchOrders();
 const totals = new Map();
 
-for (const order of orders) {
-if (!isValid(order)) continue;
-
-const key = getCustomerKey(order);
-const initials = getInitials(order);
+for (const order of all) {
+if (order.cancelled_at || order.test) continue;
+if (!["paid","partially_paid","authorized"].includes(order.financial_status)) continue;
 const amount = Number(order.current_total_price || 0);
+if (amount <= 0) continue;
 
-if (!totals.has(key)) {
-totals.set(key, { initials, total: 0 });
-}
+const key = order?.customer?.id
+? `c_${order.customer.id}`
+: `e_${(order?.email || "").toLowerCase()}`;
 
+const first = order?.customer?.first_name || "";
+const last = order?.customer?.last_name || "";
+const initials = (first || last)
+? `${first.charAt(0).toUpperCase()}.${last.charAt(0).toUpperCase()}`
+: (order?.email || "H").charAt(0).toUpperCase() + ".";
+
+if (!totals.has(key)) totals.set(key, { initials, total: 0 });
 totals.get(key).total += amount;
 }
 
 const leaderboard = Array.from(totals.values())
-.map(x => ({
-initials: x.initials,
-total: Number(x.total.toFixed(0))
-}))
+.map(x => ({ initials: x.initials, total: Number(x.total.toFixed(0)) }))
 .sort((a, b) => b.total - a.total)
-.slice(0, SETTINGS.MAX_LEADERS);
+.slice(0, 9);
 
 return res.status(200).json({
 success: true,
 updatedAt: new Date().toISOString(),
-refreshSeconds: SETTINGS.REFRESH_SECONDS,
-currencySymbol: SETTINGS.CURRENCY_SYMBOL,
+refreshSeconds: 300,
+currencySymbol: "₦",
 leaderboard
 });
 
 } catch (err) {
-return res.status(500).json({
-success: false,
-error: err.message
-});
+return res.status(500).json({ success: false, error: err.message });
 }
 }
+
